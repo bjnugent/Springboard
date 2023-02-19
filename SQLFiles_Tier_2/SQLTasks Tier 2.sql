@@ -67,12 +67,14 @@ WHERE facid IN (1,5);
 more than $100. Return the name and monthly maintenance of the facilities
 in question. */
 
-SELECT name, monthlymaintenance,
-CASE
-	WHEN monthlymaintenance > 100 THEN 'expensive'
-    ELSE 'cheap'
-END AS label
-FROM Facilities;
+SELECT CONCAT(name,': ',label),monthlymaintenance
+FROM (
+	SELECT name, monthlymaintenance,
+	CASE
+		WHEN monthlymaintenance > 100 THEN 'expensive'
+    	ELSE 'cheap'
+	END AS label
+	FROM Facilities) as f;
 
 /* Q6: You'd like to get the first and last name of the last member(s)
 who signed up. Try not to use the LIMIT clause for your solution. */
@@ -88,7 +90,7 @@ Include in your output the name of the court, and the name of the member
 formatted as a single column. Ensure no duplicate data, and order by
 the member name. */
 
-SELECT DISTINCT CONCAT(m.firstname,' ',m.surname, ': ', f.name) as tennis_court_booker
+SELECT DISTINCT f.name AS court_name, CONCAT(m.firstname,' ',m.surname) as tennis_court_booker
 FROM Members AS m
 INNER JOIN Bookings AS b
 USING(memid)
@@ -114,7 +116,7 @@ LEFT JOIN Facilities AS f
 USING(facid)
 LEFT JOIN Members AS m
 USING(memid)
-WHERE b.starttime LIKE "2012-09-14%"
+WHERE DATE(b.starttime) = '2012-09-14'
 ORDER BY cost DESC;
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
@@ -131,7 +133,7 @@ FROM Bookings AS b,
       FROM Facilities) AS f
 WHERE b.memid = m.memid
 	AND b.facid = f.facid
-    AND b.starttime LIKE "2012-09-14%"
+    AND DATE(b.starttime) = '2012-09-14'
 ORDER BY cost DESC;
 
 /* PART 2: SQLite
@@ -183,7 +185,7 @@ with engine.connect() as con:
                 ELSE m2.surname || ', ' || m2.firstname
             END AS recommender
         FROM Members AS m1
-        INNER JOIN Members AS m2
+        LEFT JOIN Members AS m2
         ON m1.recommendedby = m2.memid
         WHERE m1.memid > 0) AS result
     ORDER BY member_name;
@@ -195,7 +197,7 @@ df
 
 with engine.connect() as con:
     rs = con.execute("""
-    SELECT name AS facility, member_name, SUM(slots) AS total_slots
+    SELECT member_name, name AS facility, SUM(slots) AS total_slots
     FROM Bookings AS b,
         (SELECT facid, name
          FROM Facilities) AS f,
@@ -204,8 +206,8 @@ with engine.connect() as con:
     WHERE b.facid = f.facid
         AND b.memid = m.memid
         AND b.memid > 0
-    GROUP BY name, member_name
-    ORDER BY name;
+    GROUP BY member_name, name
+    ORDER BY member_name;
     """)
     df = pd.DataFrame(rs.fetchall())
 df
